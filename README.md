@@ -1,3 +1,11 @@
+### Для завантаження проекту
+git clone https://github.com/AntonKalochelitis/laravelTaskManager.git
+cd laravelTaskManager
+
+
+### Перед початком встановлюємо за допомогою composer
+composer install
+
 ### Перед початком установки проекту необхідно налаштувати .env
 cp ./.env.example .env
 
