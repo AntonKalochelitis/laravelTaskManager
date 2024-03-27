@@ -5,6 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int id
+ * @property int task_id
+ * @property int user_id
+ *
+ * @property Task task
+ * @property User user
+ */
 class TaskUser extends Model
 {
     use HasFactory;

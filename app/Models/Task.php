@@ -6,6 +6,17 @@ use App\Enums\TaskStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int id
+ * @property string title
+ * @property string description
+ * @property string status
+ * @property string deadline
+ * @property string created_at
+ * @property string updated_at
+ *
+ * @property TaskUser task
+ */
 class Task extends Model
 {
     use HasFactory;

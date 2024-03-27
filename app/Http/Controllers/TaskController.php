@@ -8,12 +8,21 @@ use App\Http\Requests\UpdateTask;
 use App\Models\Task;
 use App\Models\TaskUser;
 use App\Models\User;
+use App\Services\TaskService;
+use App\Services\UpdateTaskService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class TaskController extends Controller
 {
+    public function __construct(
+        protected UpdateTaskService $updateTaskService,
+        protected TaskService       $taskService
+    )
+    {
+    }
+
     /**
      * Вивод списку задач
      *
@@ -21,61 +30,40 @@ class TaskController extends Controller
      */
     public function index()
     {
-        // Отримати ID текущего користувача
-        $user_id = Auth::id();
-
-        // Отримати завдання, пов'язані з поточним користувачем
-        $user = User::find($user_id);
-        $tasks = $user->userToTasks;
-
         return view('tasks/index', [
-            'tasks' => $tasks
+            'tasks' => $this->taskService->index()
         ]);
     }
 
     /**
      * Відображення форми створення задачі
      *
-     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View|\Illuminate\Foundation\Application
+     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View|\Illuminate\Foundation\Application|\Illuminate\Http\RedirectResponse
      */
     public function create()
     {
+        if (!$this->taskService->create()) {
+            return redirect()
+                ->route('home')->with('error', 'У Вас немає прав.');
+        }
+
         return view('tasks/create');
     }
 
     /**
      * Сохранение новой задачи
      *
-     * @param Request $request
+     * @param CreateTask $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function store(CreateTask $request)
     {
-        $deadline = $request->input('deadline');
-        $deadlineTimestamp = Carbon::parse($deadline)->timestamp;
-        if (time() < $deadlineTimestamp) {
+        if ($this->updateTaskService->store($request)) {
             return redirect()
                 ->route('home')->with('error', 'Дедлайн повинен бути більше, ніж поточний час');
         }
 
-        // Створення нової задачі в базі даних
-        $newTask = Task::create([
-            'title' => $request->input('title'),
-            'description' => $request->input('description'),
-            'status' => $request->input('status'),
-            'deadline' => $request->input('deadline'),
-        ]);
-
-        // Отримання ID поточного користувача
-        $user_id = Auth::id();
-        // Получение id створенной задачі
-        $task_id = $newTask->id;
-
-        // Створення зв'язку користувача і завдань
-        TaskUser::create([
-            'user_id' => $user_id,
-            'task_id' => $task_id,
-        ]);
+        $this->taskService->store($request);
 
         // Перенаправлення користувача на сторінку списку завдань з повідомленням про успіх
         return redirect()
@@ -91,10 +79,7 @@ class TaskController extends Controller
      */
     public function edit(Task $task)
     {
-        // Отримати ID поточного користувача
-        $user_id = Auth::id();
-
-        if ($task->task->user->id == $user_id) {
+        if ($this->taskService->edit($task)) {
             return view('tasks/edit', [
                 'task' => $task
             ]);
@@ -107,34 +92,18 @@ class TaskController extends Controller
     /**
      * Оновлення завдання
      *
-     * @param Request $request
+     * @param UpdateTask $request
      * @param Task $task
      * @return \Illuminate\Http\RedirectResponse
      */
     public function update(UpdateTask $request, Task $task)
     {
-        // Отримати ID поточного користувача
-        $user_id = Auth::id();
-
-        $deadline = $request->input('deadline');
-        $deadlineTimestamp = Carbon::parse($deadline)->timestamp;
-        if (time() < $deadlineTimestamp) {
+        if ($this->updateTaskService->update($request)) {
             return redirect()
                 ->route('home')->with('error', 'Дедлайн має бути більше ніж поточний час');
         }
 
-        if ($task->task->user->id == $user_id) {
-            // Отримайте значення статусу із запиту та перетворіть його на екземпляр Enum
-            $status = TaskStatus::fromValue($request->input('status'));
-
-            // Оновлення завдання у базі даних
-            $task->update([
-                'title' => $request->input('title'),
-                'description' => $request->input('description'),
-                'status' => $status,
-                'deadline' => $request->input('deadline'),
-            ]);
-
+        if ($this->taskService->update($request, $task)) {
             // Перенаправлення користувача на сторінку списку завдань із повідомленням про успіх
             return redirect()->route('task.list')->with('success', 'Завдання успішно оновлено.');
         }
@@ -149,10 +118,7 @@ class TaskController extends Controller
      */
     public function view(Task $task)
     {
-        // Отримати ID поточного користувача
-        $user_id = Auth::id();
-
-        if ($task->task->user->id == $user_id) {
+        if ($this->taskService->view($task)) {
             return view('tasks/view', [
                 'task' => $task
             ]);
@@ -170,15 +136,10 @@ class TaskController extends Controller
      */
     public function delete(Task $task)
     {
-        // Отримати ID поточного користувача
-        $user_id = Auth::id();
-
-        if ($task->task->user->id == $user_id) {
-            // Видалення завдання з бази даних
-            $task->delete();
-
+        if ($this->taskService->delete($task)) {
             // Перенаправлення користувача на сторінку списку завдань із повідомленням про успіх
-            return redirect()->route('task.list')->with('success', 'Завдання успішно видалено.');
+            return redirect()
+                ->route('task.list')->with('success', 'Завдання успішно видалено.');
         }
 
         return redirect()
