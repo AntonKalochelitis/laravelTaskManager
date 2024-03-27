@@ -45,7 +45,14 @@ php artisan key:generate
 php artisan migrate
 ```
 
-### Для запуску проекту
+### Для запуску проекту потрібно встановити та запустити
 ```shell
+npm install
+npx vite build
+```
+
+### Для запуску проекту, потрібно запустити дві служби 
+```shell
+npm run dev -- --host=0.0.0.0
 php artisan serve --host=0.0.0.0
 ```
