@@ -9,30 +9,32 @@ use App\Http\Requests\UpdateTask;
 use App\Models\Task;
 use App\Models\TaskUser;
 use App\Models\User;
+use App\Repositories\TaskRepository;
+use App\Repositories\TaskUserRepository;
+use App\Repositories\UserRepository;
 use Illuminate\Support\Facades\Auth;
 
 class TaskService extends AbstractService
 {
-    public function __construct()
+    public function __construct(
+        protected UserRepository     $userRepository,
+        protected TaskRepository     $taskRepository,
+        protected TaskUserRepository $taskUserRepository
+    )
     {
     }
 
     public function index()
     {
-        // Отримати ID текущего користувача
-        $user_id = Auth::id();
-
         // Отримати завдання, пов'язані з поточним користувачем
-        /** @var User $user */
-        $user = User::find($user_id);
+        $user = $this->userRepository->findCurrentUser();
 
         return $user->userToTasks;
     }
 
     public function create(): bool
     {
-        $user_id = Auth::id();
-        if (!empty($user_id)) {
+        if (!empty(Auth::id())) {
             return true;
         }
 
@@ -42,29 +44,15 @@ class TaskService extends AbstractService
     public function store(CreateTask $request)
     {
         // Створення нової задачі в базі даних
-        /** @var Task $newTask */
-        $newTask = Task::create([
-            'title' => $request->input('title'),
-            'description' => $request->input('description'),
-            'status' => $request->input('status'),
-            'deadline' => $request->input('deadline'),
-        ]);
-
-        // Отримання ID поточного користувача
-        $user_id = Auth::id();
-        // Получение id створенной задачі
-        $task_id = $newTask->id;
+        $newTask = $this->taskRepository->create($request);
 
         // Створення зв'язку користувача і завдань
-        TaskUser::create([
-            'user_id' => $user_id,
-            'task_id' => $task_id,
-        ]);
+        $this->taskUserRepository->create(Auth::id(), $newTask->id);
     }
 
     public function edit(Task $task): bool
     {
-        // Отримати ID поточного користувача
+        // ID поточного користувача
         $user_id = Auth::id();
 
         if ($task->task->user->id == $user_id) {
@@ -76,20 +64,10 @@ class TaskService extends AbstractService
 
     public function update(UpdateTask $request, Task $task): bool
     {
-        // Отримати ID поточного користувача
-        $user_id = Auth::id();
-
-        if ($task->task->user->id == $user_id) {
-            // Отримайте значення статусу із запиту та перетворіть його на екземпляр Enum
-            $status = TaskStatus::fromValue($request->input('status'));
-
+        // ID поточного користувача
+        if ($task->task->user->id == Auth::id()) {
             // Оновлення завдання у базі даних
-            $task->update([
-                'title' => $request->input('title'),
-                'description' => $request->input('description'),
-                'status' => $status,
-                'deadline' => $request->input('deadline'),
-            ]);
+            $this->taskRepository->updateByTask($request, $task);
 
             return true;
         }
@@ -99,10 +77,8 @@ class TaskService extends AbstractService
 
     public function view(Task $task): bool
     {
-        // Отримати ID поточного користувача
-        $user_id = Auth::id();
-
-        if ($task->task->user->id == $user_id) {
+        // ID поточного користувача
+        if ($task->task->user->id == Auth::id()) {
             return true;
         }
 
@@ -111,10 +87,8 @@ class TaskService extends AbstractService
 
     public function delete(Task $task): bool
     {
-        // Отримати ID поточного користувача
-        $user_id = Auth::id();
-
-        if ($task->task->user->id == $user_id) {
+        // ID поточного користувача
+        if ($task->task->user->id == Auth::id()) {
             // Видалення завдання з бази даних
             $task->delete();
 
